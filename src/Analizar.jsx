@@ -26,7 +26,7 @@ function Analizar({ token, logout }) {
             const formData = new FormData();
             formData.append("imagen", imagen);
 
-            const respuesta = await fetch("http://localhost:4000/api/analizar", {
+            const respuesta = await fetch("https://verifica-d9y5.onrender.com/api/analizar", {
                 method: "POST",
                 headers: {
                     Authorization: "Bearer " + token
