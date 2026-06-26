@@ -1,206 +1,253 @@
 import { useState } from "react";
 
 function Analizar({ token, logout }) {
-  const [imagen, setImagen] = useState(null);
-  const [preview, setPreview] = useState(null);
 
-  const [resultado, setResultado] = useState(null);
-  const [mensaje, setMensaje] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [loading, setLoading] = useState(false);
+    const [imagen, setImagen] = useState(null);
+    const [preview, setPreview] = useState(null);
 
-  // ---------------- SUBIR IMAGEN ----------------
-  const seleccionarImagen = (e) => {
-    const file = e.target.files[0];
+    const [resultado, setResultado] = useState(null);
+    const [loading, setLoading] = useState(false);
 
-    if (!file) return;
+    const seleccionarImagen = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
 
-    setImagen(file);
-    setPreview(URL.createObjectURL(file));
+        setImagen(file);
+        setPreview(URL.createObjectURL(file));
+        setResultado(null);
+    };
 
-    setResultado(null);
-    setTipo("success");
-    setMensaje("📄 Comprobante cargado correctamente");
-  };
+    const analizar = async () => {
+        if (!imagen) return;
 
-  // ---------------- ANALIZAR ----------------
-  const analizar = async () => {
-    if (!imagen) {
-      setTipo("error");
-      setMensaje("⚠️ Debes subir una imagen primero");
-      return;
-    }
+        try {
+            setLoading(true);
 
-    try {
-      setLoading(true);
-      setTipo("loading");
-      setMensaje("🔍 Analizando comprobante...");
+            const formData = new FormData();
+            formData.append("imagen", imagen);
 
-      const formData = new FormData();
-      formData.append("imagen", imagen);
+            const respuesta = await fetch("http://localhost:4000/api/analizar", {
+                method: "POST",
+                headers: {
+                    Authorization: "Bearer " + token
+                },
+                body: formData
+            });
 
-      const respuesta = await fetch("http://localhost:4000/analizar", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + token
-        },
-        body: formData
-      });
+            const datos = await respuesta.json();
 
-      const datos = await respuesta.json();
+            if (!respuesta.ok) throw new Error(datos.error);
 
-      if (!respuesta.ok || datos.error) {
-        throw new Error(datos.error || "Error backend");
-      }
+            setResultado(datos);
 
-      setResultado(datos);
-      setTipo("success");
-      setMensaje("✅ Análisis completado");
+        } catch (error) {
+            console.log(error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    } catch (error) {
-      console.log(error);
-      setTipo("error");
-      setMensaje("❌ Error conectando con el servidor");
-    } finally {
-      setLoading(false);
-    }
-  };
+    const limpiar = () => {
+        setImagen(null);
+        setPreview(null);
+        setResultado(null);
+    };
 
-  // ---------------- LIMPIAR ----------------
-  const limpiar = () => {
-    setImagen(null);
-    setPreview(null);
-    setResultado(null);
-    setMensaje("");
-    setTipo("");
-  };
+    // ======================
+    // SAFE DATA (IMPORTANTE)
+    // ======================
+    const data = resultado || {};
+    const ocr = data.ocr || {};
+    const qr = data.qr || {};
+    const tipo = data.tipo || "desconocido";
 
-  return (
-    <div className="min-h-screen bg-[#050816] text-white flex items-center justify-center p-5">
-
-      <div className="w-full max-w-md bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/10">
-
-        {/* HEADER */}
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold">💳 Comprobante AI</h1>
-
-          <button
-            onClick={logout}
-            className="bg-red-500 px-3 py-1 rounded"
-          >
-            Logout
-          </button>
+    // ======================
+    // CARD COMPONENT
+    // ======================
+    const Card = ({ label, value }) => (
+        <div className="bg-slate-800 rounded-2xl p-4">
+            <p className="text-slate-400">{label}</p>
+            <h3 className="text-lg font-bold mt-2">
+                {value ?? "No detectado"}
+            </h3>
         </div>
+    );
 
-        <p className="text-gray-300 text-center mb-6">
-          OCR + QR Verificación automática
-        </p>
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white">
 
-        {/* PREVIEW */}
-        <div className="h-64 bg-black/20 rounded-2xl flex items-center justify-center overflow-hidden mb-5">
+            {/* HEADER */}
+            <header className="border-b border-slate-700 bg-slate-900/70 backdrop-blur-xl">
+                <div className="max-w-7xl mx-auto flex justify-between px-8 py-5">
+                    <div>
+                        <h1 className="text-3xl font-bold">🤖 Verifica AI</h1>
+                        <p className="text-slate-400">Validación inteligente de documentos</p>
+                    </div>
 
-          {preview ? (
-            <img
-              src={preview}
-              className="w-full h-full object-contain"
-              alt="preview"
-            />
-          ) : (
-            <span className="text-gray-400">
-              📷 Sube un comprobante
-            </span>
-          )}
+                    <button
+                        onClick={logout}
+                        className="bg-red-600 hover:bg-red-500 px-5 py-3 rounded-xl font-bold"
+                    >
+                        Cerrar sesión
+                    </button>
+                </div>
+            </header>
 
+            {/* MAIN */}
+            <main className="max-w-7xl mx-auto p-8 grid lg:grid-cols-2 gap-8">
+
+                {/* IZQUIERDA */}
+                <div className="bg-slate-900/60 border border-slate-700 rounded-3xl p-6">
+
+                    <h2 className="text-2xl font-bold mb-6">📄 Documento</h2>
+
+                    <div className="h-[420px] flex items-center justify-center border-2 border-dashed border-slate-600 rounded-2xl overflow-hidden bg-slate-950">
+
+                        {preview ? (
+                            <img src={preview} className="object-contain w-full h-full" />
+                        ) : (
+                            <p className="text-slate-400">Sube un documento</p>
+                        )}
+
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mt-6">
+
+                        <label className="bg-cyan-600 hover:bg-cyan-500 p-4 rounded-2xl text-center font-bold cursor-pointer">
+                            📁 Archivo
+                            <input type="file" hidden onChange={seleccionarImagen} />
+                        </label>
+
+                        <label className="bg-violet-600 hover:bg-violet-500 p-4 rounded-2xl text-center font-bold cursor-pointer">
+                            📷 Cámara
+                            <input type="file" capture="environment" hidden onChange={seleccionarImagen} />
+                        </label>
+
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mt-5">
+
+                        <button
+                            onClick={analizar}
+                            disabled={loading}
+                            className="bg-emerald-600 hover:bg-emerald-500 p-4 rounded-2xl font-bold"
+                        >
+                            {loading ? "Analizando..." : "🚀 Analizar"}
+                        </button>
+
+                        <button
+                            onClick={limpiar}
+                            className="bg-red-600 hover:bg-red-500 p-4 rounded-2xl font-bold"
+                        >
+                            Limpiar
+                        </button>
+
+                    </div>
+
+                </div>
+
+                {/* DERECHA */}
+                <div className="space-y-6">
+
+                    {/* TIPO DOCUMENTO */}
+                    <div className="bg-slate-900/60 border border-slate-700 rounded-3xl p-6">
+                        <h2 className="text-xl font-bold mb-4">📄 Tipo de documento</h2>
+
+                        <div className="text-center p-4 bg-slate-800 rounded-2xl font-bold">
+                            {tipo === "comprobante" && "💳 Comprobante"}
+                            {tipo === "cedula" && "🪪 Cédula"}
+                            {tipo === "rut" && "📑 RUT"}
+                            {tipo === "desconocido" && "❓ Desconocido"}
+                        </div>
+                    </div>
+
+                    {/* RESULTADO */}
+                    <div className="bg-slate-900/60 border border-slate-700 rounded-3xl p-6">
+
+                        <h2 className="text-xl font-bold mb-4">🤖 Resultado IA</h2>
+
+                        <div className={`p-5 rounded-2xl text-center font-bold text-xl
+                            ${data.estado === "APROBADO" ? "bg-green-600"
+                                : data.estado === "VALIDO" ? "bg-blue-600"
+                                    : data.estado === "RECHAZADO" ? "bg-red-600"
+                                        : "bg-yellow-500 text-black"
+                            }`}
+                        >
+                            {data.estado || "Esperando..."}
+                        </div>
+
+                        <div className="mt-5">
+                            <div className="flex justify-between mb-2">
+                                <span>Confianza</span>
+                                <span>{data.confianza || 0}%</span>
+                            </div>
+
+                            <div className="w-full bg-slate-700 h-4 rounded-full">
+                                <div
+                                    className="bg-emerald-500 h-4 rounded-full"
+                                    style={{ width: `${data.confianza || 0}%` }}
+                                />
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {/* DATOS */}
+                    <div className="bg-slate-900/60 border border-slate-700 rounded-3xl p-6">
+                        <h2 className="text-xl font-bold mb-4">📊 Datos</h2>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <Card label="🏦 Banco" value={data.banco} />
+                            <Card label="💰 Monto" value={ocr.monto} />
+                            <Card label="🔑 Referencia" value={ocr.referencia} />
+                            <Card label="📄 Estado" value={data.estado} />
+                        </div>
+                    </div>
+
+                    {/* OCR */}
+                    <div className="bg-slate-900/60 border border-slate-700 rounded-3xl p-6">
+
+                        <h2 className="text-xl font-bold mb-4">📄 OCR</h2>
+
+                        <div className="bg-slate-950 p-4 rounded-2xl max-h-72 overflow-y-auto">
+                            {data.texto ? (
+                                data.texto.split("\n").map((l, i) => (
+                                    <p key={i} className="text-green-400">
+                                        {l}
+                                    </p>
+                                ))
+                            ) : (
+                                <p className="text-slate-500">Sin texto</p>
+                            )}
+                        </div>
+
+                    </div>
+
+                    {/* QR */}
+                    <div className="bg-slate-900/60 border border-slate-700 rounded-3xl p-6">
+
+                        <h2 className="text-xl font-bold mb-4">📷 QR</h2>
+
+                        <div className="bg-slate-800 p-4 rounded-2xl">
+
+                            {qr?.existe ? (
+                                <div>
+                                    <p className="text-green-400 font-bold">✔ Detectado</p>
+                                    <p className="break-all">{qr.valor}</p>
+                                </div>
+                            ) : (
+                                <p className="text-slate-400">No detectado</p>
+                            )}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </main>
         </div>
-
-        {/* INPUT FILE */}
-        <label className="block bg-cyan-500 hover:bg-cyan-400 text-center p-4 rounded-2xl cursor-pointer font-bold mb-3">
-          📁 Seleccionar imagen
-          <input
-            type="file"
-            accept="image/*"
-            onChange={seleccionarImagen}
-            className="hidden"
-          />
-        </label>
-
-        {/* CAMARA (móvil) */}
-        <label className="block bg-purple-500 hover:bg-purple-400 text-center p-4 rounded-2xl cursor-pointer font-bold mb-5">
-          📷 Abrir cámara
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={seleccionarImagen}
-            className="hidden"
-          />
-        </label>
-
-        {/* BOTONES */}
-        <div className="flex gap-2 mb-4">
-
-          <button
-            onClick={analizar}
-            disabled={loading}
-            className={`w-full p-4 rounded-2xl font-bold text-lg ${
-              loading
-                ? "bg-gray-500 cursor-not-allowed"
-                : "bg-green-500 hover:bg-green-400"
-            }`}
-          >
-            {loading ? "⏳ Analizando..." : "🚀 Verificar pago"}
-          </button>
-
-          <button
-            onClick={limpiar}
-            className="bg-red-500 px-4 rounded-2xl font-bold"
-          >
-            🔄
-          </button>
-
-        </div>
-
-        {/* RESULTADO */}
-        {resultado && (
-          <div className="mt-6 bg-black/30 rounded-2xl p-5 space-y-2">
-
-            <h2 className="text-xl font-bold">
-              {resultado.estado === "APROBADO"
-                ? "✅ PAGO COINCIDE"
-                : resultado.estado === "RECHAZADO"
-                ? "❌ NO COINCIDE"
-                : "⚠️ REVISAR"}
-            </h2>
-
-            <p>🏦 Banco: <b>{resultado.banco}</b></p>
-            <p>💰 Monto OCR: <b>{resultado.montoOCR}</b></p>
-            <p>🔳 Monto QR: <b>{resultado.montoQR}</b></p>
-            <p>🔑 Ref OCR: <b>{resultado.referenciaOCR}</b></p>
-            <p>🔑 Ref QR: <b>{resultado.referenciaQR}</b></p>
-
-            <p className="text-green-300 font-bold">
-              🎯 Confianza: {resultado.confianza}%
-            </p>
-
-          </div>
-        )}
-
-        {/* MENSAJE */}
-        {mensaje && (
-          <div className={`mt-5 p-4 rounded-2xl text-center font-bold ${
-            tipo === "error"
-              ? "bg-red-500/20 text-red-300"
-              : tipo === "loading"
-              ? "bg-yellow-500/20 text-yellow-300"
-              : "bg-green-500/20 text-green-300"
-          }`}>
-            {mensaje}
-          </div>
-        )}
-
-      </div>
-    </div>
-  );
+    );
 }
 
 export default Analizar;
